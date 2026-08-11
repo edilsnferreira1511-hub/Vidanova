@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mural Vida Nova — Guia do Bairro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --cork: #b9905f;
+    --cork-dark: #a17a49;
+    --cork-shadow: #7d5c33;
+    --paper: #faf3e4;
+    --paper-shadow: #d9c9a8;
+    --ink: #2c2013;
+    --ink-soft: #5c4a34;
+
+    --c-servicos: #c1652f;
+    --c-alimentacao: #c98d16;
+    --c-comercio: #2f6e5d;
+    --c-classificados: #3e6b8a;
+    --c-pets: #b6465b;
+
+    --whatsapp: #25d366;
+    --whatsapp-dark: #1da851;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+
+  body{
+    font-family:'DM Sans', sans-serif;
+    color:var(--ink);
+    background-color:var(--cork);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255,255,255,0.06) 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(0,0,0,0.08) 0, transparent 45%),
+      repeating-linear-gradient(115deg, rgba(0,0,0,0.035) 0px, rgba(0,0,0,0.035) 1px, transparent 1px, transparent 5px),
+      repeating-linear-gradient(25deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 6px);
+    min-height:100vh;
+    padding-bottom:48px;
+  }
+
+  header{
+    max-width:560px;
+    margin:0 auto;
+    padding:36px 20px 20px;
+    text-align:center;
+  }
+  .hero-title{
+    font-family:'Kalam', cursive;
+    font-weight:700;
+    font-size:2.6rem;
+    color:var(--paper);
+    text-shadow:2px 3px 0 var(--cork-shadow);
+    line-height:1.05;
+    margin:0;
+    transform:rotate(-1.5deg);
+  }
+  .hero-sub{
+    font-size:0.95rem;
+    color:var(--paper);
+    opacity:0.9;
+    margin:10px 0 0;
+    font-weight:500;
+  }
+
+  .search-wrap{
+    max-width:560px;
+    margin:22px auto 0;
+    padding:0 20px;
+  }
+  .search-box{
+    background:var(--paper);
+    border-radius:10px;
+    box-shadow:0 4px 0 var(--paper-shadow), 0 6px 14px rgba(0,0,0,0.25);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 16px;
+  }
+  .search-box svg{ flex-shrink:0; opacity:0.55; }
+  .search-box input{
+    border:none;
+    outline:none;
+    background:transparent;
+    font-family:'DM Sans', sans-serif;
+    font-size:0.98rem;
+    width:100%;
+    color:var(--ink);
+  }
+  .search-box input::placeholder{ color:#9c8a70; }
+
+  .chips-wrap{
+    max-width:560px;
+    margin:16px auto 0;
+    padding:0 20px;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .chips-wrap::-webkit-scrollbar{ display:none; }
+  .chips{
+    display:flex;
+    gap:8px;
+    padding-bottom:4px;
+  }
+  .chip{
+    flex-shrink:0;
+    font-family:'DM Sans', sans-serif;
+    font-weight:700;
+    font-size:0.82rem;
+    color:var(--paper);
+    background:rgba(0,0,0,0.18);
+    border:1.5px solid rgba(255,255,255,0.35);
+    padding:8px 14px;
+    border-radius:999px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .chip:active{ transform:scale(0.96); }
+  .chip.active{
+    background:var(--paper);
+    color:var(--ink);
+    border-color:var(--paper);
+  }
+
+  main{
+    max-width:560px;
+    margin:26px auto 0;
+    padding:0 20px;
+    display:flex;
+    flex-direction:column;
+    gap:26px;
+  }
+
+  .card{
+    position:relative;
+    background:var(--paper);
+    border-radius:6px;
+    padding:20px 18px 18px;
+    box-shadow:0 10px 18px rgba(0,0,0,0.28), 0 2px 0 rgba(0,0,0,0.08) inset;
+  }
+  .card:nth-child(odd){ transform:rotate(-0.8deg); }
+  .card:nth-child(even){ transform:rotate(0.7deg); }
+  .card.featured{ box-shadow:0 10px 18px rgba(0,0,0,0.28), 0 0 0 3px #d9b21c, 0 2px 0 rgba(0,0,0,0.08) inset; }
+
+  .pin{
+    position:absolute;
+    top:-11px;
+    left:50%;
+    transform:translateX(-50%);
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    box-shadow:0 3px 4px rgba(0,0,0,0.4), inset -2px -2px 3px rgba(0,0,0,0.35), inset 2px 2px 3px rgba(255,255,255,0.5);
+  }
+
+  .tape{
+    position:absolute;
+    top:-10px;
+    right:16px;
+    width:64px;
+    height:24px;
+    opacity:0.85;
+    transform:rotate(4deg);
+    border-radius:2px;
+  }
+
+  .media-btn{
+    position:absolute;
+    top:14px;
+    right:14px;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    border:1.5px solid var(--paper-shadow);
+    background:#fff;
+    color:var(--ink-soft);
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    padding:0;
+    z-index:5;
+    box-shadow:0 2px 5px rgba(0,0,0,0.18);
+  }
+  .media-btn:hover{ background:var(--paper-shadow); }
+  .card.has-media .card-top{ padding-right:40px; }
+
+  .card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .card-name-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .star-badge{ font-size:1.05rem; line-height:1; }
+  .card-name{
+    font-family:'Kalam', cursive;
+    font-weight:700;
+    font-size:1.25rem;
+    line-height:1.2;
+    margin:0;
+  }
+  .badge{
+    flex-shrink:0;
+    font-size:0.68rem;
+    font-weight:800;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:#fff;
+    padding:4px 8px;
+    border-radius:5px;
+    white-space:nowrap;
+  }
+
+  .price{
+    font-weight:800;
+    font-size:1.05rem;
+    margin:2px 0 8px;
+  }
+
+  .card-desc{
+    font-size:0.92rem;
+    color:var(--ink-soft);
+    line-height:1.45;
+    margin:0 0 10px;
+  }
+
+  .meta{
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    margin:0 0 4px;
+    display:flex;
+    gap:6px;
+    align-items:flex-start;
+    line-height:1.4;
+  }
+  .meta svg{ flex-shrink:0; margin-top:2px; opacity:0.6; }
+
+  .insta-link{
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    text-decoration:none;
+    display:inline-flex;
+    gap:6px;
+    align-items:center;
+    margin-top:2px;
+  }
+  .insta-link:hover{ text-decoration:underline; }
+
+  .wa-btn{
+    margin-top:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    background:var(--whatsapp);
+    color:#fff;
+    font-family:'DM Sans', sans-serif;
+    font-weight:700;
+    font-size:0.92rem;
+    text-decoration:none;
+    padding:11px 14px;
+    border-radius:8px;
+    box-shadow:0 3px 0 var(--whatsapp-dark);
+    transition:transform .08s ease;
+  }
+  .wa-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--whatsapp-dark); }
+  .wa-btn-secondary{
+    margin-top:8px;
+    background:transparent;
+    border:1.5px solid var(--whatsapp);
+    color:#1c7a41;
+    box-shadow:none;
+  }
+  .wa-btn-map{
+    background:transparent;
+    border:1.5px solid var(--ink-soft);
+    color:var(--ink-soft);
+    box-shadow:none;
+    margin-top:8px;
+  }
+
+  .empty{
+    text-align:center;
+    color:var(--paper);
+    padding:50px 20px;
+    font-size:0.98rem;
+    line-height:1.5;
+  }
+  .empty strong{ display:block; font-family:'Kalam',cursive; font-size:1.3rem; margin-bottom:6px; }
+
+  footer{
+    max-width:560px;
+    margin:30px auto 0;
+    padding:0 20px;
+    text-align:center;
+    color:var(--paper);
+    opacity:0.75;
+    font-size:0.78rem;
+    line-height:1.5;
+  }
+
+  .admin-toggle{
+    margin-top:16px;
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.35);
+    color:var(--paper);
+    font-family:'DM Sans', sans-serif;
+    font-size:0.72rem;
+    font-weight:700;
+    padding:7px 14px;
+    border-radius:999px;
+    cursor:pointer;
+    opacity:0.75;
+  }
+  .admin-toggle:hover{ opacity:1; }
+
+  .sync-status{
+    max-width:560px;
+    margin:14px auto 0;
+    padding:0 20px;
+    text-align:center;
+    font-size:0.78rem;
+    color:var(--paper);
+    opacity:0.8;
+  }
+
+  .lightbox{
+    position:fixed;
+    inset:0;
+    background:rgba(20,14,8,0.92);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:250;
+    padding:28px;
+  }
+  .lightbox[hidden]{ display:none; }
+  .lightbox img{
+    max-width:100%;
+    max-height:100%;
+    border-radius:8px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+  }
+  .lightbox-close{
+    position:absolute;
+    top:18px;
+    right:18px;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    border:none;
+    background:var(--paper);
+    color:var(--ink);
+    font-size:1.1rem;
+    cursor:pointer;
+  }
+
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(20,14,8,0.75);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:260;
+    padding:20px;
+  }
+  .modal-overlay[hidden]{ display:none; }
+  .modal-card{
+    background:var(--paper);
+    border-radius:10px;
+    padding:26px 22px 22px;
+    max-width:420px;
+    width:100%;
+    position:relative;
+    box-shadow:0 20px 50px rgba(0,0,0,0.45);
+    max-height:90vh;
+    overflow-y:auto;
+  }
+  .modal-close{
+    position:absolute;
+    top:10px;
+    right:10px;
+    background:transparent;
+    border:none;
+    font-size:1.15rem;
+    cursor:pointer;
+    color:var(--ink-soft);
+    width:30px;
+    height:30px;
+  }
+  .modal-title{
+    font-family:'Kalam', cursive;
+    font-size:1.35rem;
+    margin:0 0 6px;
+  }
+  .modal-text{
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    margin:0 0 14px;
+    line-height:1.45;
+  }
+  .form-label{
+    display:block;
+    font-size:0.78rem;
+    font-weight:700;
+    color:var(--ink-soft);
+    margin:10px 0 4px;
+  }
+  .modal-input, .modal-file{
+    width:100%;
+    padding:10px 12px;
+    border-radius:6px;
+    border:1.5px solid var(--paper-shadow);
+    font-family:'DM Sans', sans-serif;
+    font-size:0.9rem;
+    margin-bottom:8px;
+    background:#fff;
+    color:var(--ink);
+  }
+  textarea.modal-input{ min-height:70px; resize:vertical; }
+  .modal-input:disabled, .modal-file:disabled{ opacity:0.6; }
+  .modal-error{
+    color:#a1273c;
+    font-size:0.8rem;
+    margin:0 0 10px;
+  }
+  .modal-status{
+    font-size:0.8rem;
+    color:var(--ink-soft);
+    margin:10px 0 0;
+    min-height:1.2em;
+    line-height:1.4;
+  }
+  .modal-btn{
+    width:100%;
+    padding:11px;
+    border:none;
+    border-radius:8px;
+    background:var(--c-comercio);
+    color:#fff;
+    font-weight:700;
+    cursor:pointer;
+    font-size:0.9rem;
+    margin-top:4px;
+    font-family:'DM Sans', sans-serif;
+  }
+  .modal-btn:disabled{ opacity:0.6; cursor:default; }
+  .modal-btn-secondary{
+    background:transparent;
+    border:1.5px solid #a1273c;
+    color:#a1273c;
+    margin-top:16px;
+  }
+  .modal-btn-danger{ background:#a1273c; }
+  .modal-btn-ghost{
+    background:transparent;
+    border:1.5px solid var(--paper-shadow);
+    color:var(--ink-soft);
+    box-shadow:none;
+  }
+  #adminStep3 .modal-btn{ margin-top:10px; }
+  #adminStep3 .modal-btn:first-of-type{ margin-top:2px; }
+
+  #formImagePreview{
+    display:none;
+    max-height:160px;
+    width:100%;
+    object-fit:cover;
+    border-radius:8px;
+    margin-bottom:8px;
+  }
+  .admin-checkbox-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    margin:12px 0;
+  }
+  .admin-checkbox-label input{ width:auto; margin:0; }
+
+  .admin-list{
+    margin-top:14px;
+    max-height:260px;
+    overflow-y:auto;
+    border:1px solid var(--paper-shadow);
+    border-radius:8px;
+  }
+  .admin-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:9px 10px;
+    border-bottom:1px solid var(--paper-shadow);
+    font-size:0.85rem;
+  }
+  .admin-row:last-child{ border-bottom:none; }
+  .admin-row-info{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    overflow:hidden;
+  }
+  .admin-row-name{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:150px;
+  }
+  .admin-row-actions{ display:flex; gap:4px; flex-shrink:0; }
+  .admin-icon-btn{
+    width:28px;
+    height:28px;
+    border-radius:6px;
+    border:1px solid var(--paper-shadow);
+    background:#fff;
+    cursor:pointer;
+    font-size:0.85rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .admin-icon-btn.active{ background:#f0c419; border-color:#c99a0e; }
+  .admin-empty-hint{
+    padding:14px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:0.82rem;
+  }
+
+  @media (min-width:600px){
+    main{ grid-template-columns:1fr 1fr; display:grid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="hero-title">🏘️ Mural Vida Nova</p>
+  <p class="hero-sub">comércio, serviços e avisos do bairro — tudo num só lugar</p>
+</header>
+
+<div class="search-wrap">
+  <div class="search-box">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="searchInput" type="text" placeholder="Buscar por nome ou palavra-chave... (ex: pintor, gás, pão)">
+  </div>
+</div>
+
+<div class="chips-wrap">
+  <div class="chips" id="chips"></div>
+</div>
+
+<main id="cardsContainer"></main>
+
+<p id="syncStatus" class="sync-status" hidden></p>
+
+<footer>
+  Toque em <strong>💬 Chamar no WhatsApp</strong> para falar direto com o anunciante.<br>
+  Guia digital comunitário do Residencial Vida Nova.<br>
+  <button id="adminToggle" class="admin-toggle" type="button">⚙️ Área Admin</button>
+</footer>
+
+<div id="lightbox" class="lightbox" hidden>
+  <button id="lightboxClose" class="lightbox-close" type="button" aria-label="Fechar">✕</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<div id="adminModal" class="modal-overlay" hidden>
+  <div class="modal-card">
+    <button id="adminModalClose" class="modal-close" type="button" aria-label="Fechar">✕</button>
+
+    <div id="adminStep1">
+      <p class="modal-title">🔒 Área Admin</p>
+      <p class="modal-text">Digite a senha de acesso para gerenciar os anúncios do mural.</p>
+      <input id="adminPasswordInput" type="password" class="modal-input" placeholder="Senha">
+      <p id="adminPasswordError" class="modal-error" hidden>Senha incorreta. Tente novamente.</p>
+      <button id="adminPasswordSubmit" class="modal-btn" type="button">Entrar</button>
+    </div>
+
+    <div id="adminStep2" hidden>
+      <p class="modal-title">📋 Painel de Gestão</p>
+      <button id="adminNewBtn" class="modal-btn" type="button">➕ Novo Anúncio</button>
+      <div id="adminList" class="admin-list"></div>
+
+      <p class="modal-text" style="margin-top:18px;">Ou publique vários de uma vez com um arquivo <strong>.json</strong>.</p>
+      <input id="adminFileInput" type="file" accept=".json" class="modal-file">
+      <p id="adminUploadStatus" class="modal-status"></p>
+      <button id="adminResetBtn" class="modal-btn modal-btn-secondary" type="button">Restaurar Anúncios Padrão no Firebase</button>
+    </div>
+
+    <div id="adminStep3" hidden>
+      <p class="modal-title">🧭 Como publicar?</p>
+      <p class="modal-text" id="adminSummaryText"></p>
+      <button id="adminReplaceAllBtn" class="modal-btn modal-btn-danger" type="button">🗑️ Substituir tudo</button>
+      <button id="adminMergeBtn" class="modal-btn" type="button">➕ Manter existentes e adicionar novos</button>
+      <button id="adminCancelUploadBtn" class="modal-btn modal-btn-ghost" type="button">✖️ Cancelar</button>
+    </div>
+
+    <div id="adminFormStep" hidden>
+      <p class="modal-title" id="adminFormTitle">✏️ Editar Anúncio</p>
+
+      <label class="form-label">Nome / Título *</label>
+      <input id="formName" type="text" class="modal-input" placeholder="Nome do estabelecimento">
+
+      <label class="form-label">Categoria *</label>
+      <select id="formCat" class="modal-input"></select>
+
+      <label class="form-label">Preço (opcional)</label>
+      <input id="formPrice" type="text" class="modal-input" placeholder="Ex: R$ 50,00">
+
+      <label class="form-label">Descrição</label>
+      <textarea id="formDesc" class="modal-input" placeholder="Descrição curta"></textarea>
+
+      <label class="form-label">Endereço</label>
+      <input id="formAddress" type="text" class="modal-input" placeholder="Rua, quadra, lote...">
+
+      <label class="form-label">Horário de funcionamento</label>
+      <input id="formHours" type="text" class="modal-input" placeholder="Ex: Seg a Sáb, 8h às 18h">
+
+      <label class="form-label">WhatsApp 1 *</label>
+      <input id="formWa" type="text" class="modal-input" placeholder="(62) 90000-0000">
+
+      <label class="form-label">WhatsApp 2 (opcional)</label>
+      <input id="formWa2" type="text" class="modal-input" placeholder="(62) 90000-0000">
+
+      <label class="form-label">Instagram (opcional)</label>
+      <input id="formInstagram" type="text" class="modal-input" placeholder="usuario.do.insta">
+
+      <label class="form-label">Link do Google Maps (opcional)</label>
+      <input id="formLocation" type="text" class="modal-input" placeholder="https://maps.google.com/...">
+
+      <label class="form-label">Foto — cole um link</label>
+      <input id="formImageUrl" type="text" class="modal-input" placeholder="https://...">
+
+      <label class="form-label">...ou escolha uma foto do celular</label>
+      <input id="formImageFile" type="file" accept="image/*" class="modal-file">
+      <img id="formImagePreview" alt="Prévia da foto">
+
+      <label class="admin-checkbox-label">
+        <input id="formFeatured" type="checkbox">
+        ⭐ Destacar este anúncio no topo do mural
+      </label>
+
+      <p id="adminFormStatus" class="modal-status"></p>
+      <button id="formSaveBtn" class="modal-btn" type="button">💾 Salvar</button>
+      <button id="formCancelBtn" class="modal-btn modal-btn-ghost" type="button">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- FIREBASE ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyDhf8XdEUA2wK5jyYYrmQSNxDJ8EYGnkJE",
+  authDomain: "anuncio-vidanova.firebaseapp.com",
+  projectId: "anuncio-vidanova",
+  storageBucket: "anuncio-vidanova.firebasestorage.app",
+  messagingSenderId: "20919909261",
+  appId: "1:20919909261:web:e3d9410a5ac99980595bc4",
+  measurementId: "G-65V0BRNVLF"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const anunciosRef = db.collection("anuncios");
+
+/* ---------- DATA ---------- */
+const CATEGORIES = [
+  { id: 'todos', label: 'Todos', emoji: '' },
+  { id: 'servicos', label: 'Serviços', emoji: '🛠️', color: 'var(--c-servicos)' },
+  { id: 'alimentacao', label: 'Alimentação', emoji: '🍔', color: 'var(--c-alimentacao)' },
+  { id: 'comercio', label: 'Comércio', emoji: '🛍️', color: 'var(--c-comercio)' },
+  { id: 'classificados', label: 'Classificados', emoji: '💰', color: 'var(--c-classificados)' },
+  { id: 'pets', label: 'Pets / Achados', emoji: '🐾', color: 'var(--c-pets)' },
+];
+const VALID_CATS = CATEGORIES.filter(c => c.id !== 'todos').map(c => c.id);
+const ADMIN_PASSWORD = '912579';
+
+const DEFAULT_ITEMS = [
+  { cat:'servicos', name:'ACM Afiações', desc:'Afiação de alicates de cutícula, tesouras, espátulas e tesouras de pet shop.', address:'Rua Pb 11, Qd 24, Lt 37 – Parque Brasília', hours:'Segunda a Sábado, das 08:00 às 18:00', wa:'62992222424' },
+  { cat:'servicos', name:'Netiin Pinturas & Reformas', desc:'Pintura residencial e reformas em geral. Orçamento gratuito.', wa:'6293993154' },
+  { cat:'servicos', name:'Izadora Soares Studio', desc:'Lash designer, alongamento de cílios e design de sobrancelhas.', instagram:'izadorasoares.studio', wa:'6292381198' },
+  { cat:'servicos', name:'Fotos para Casamento Civil', desc:'Fotografia para casamento no civil.', wa:'6294679936' },
+
+  { cat:'alimentacao', name:'Wanessa Bueno Confeitaria', desc:'Pão francês, pão de queijo, bolos caseiros, salgados, sobremesas, fatias de torta, açaí e sucos.', address:'Rua JP 01, Qd 02, Lt 09 – Jardim Primavera (1ª Etapa)', instagram:'wanessa.bueno.confeitaria', wa:'6292019330' },
+  { cat:'alimentacao', name:'Além das Pizzas — Delivery', desc:'Pizzas, sanduíches artesanais, porções, refrigerantes e sucos.', wa:'62993857715' },
+  { cat:'alimentacao', name:'Marcos — Venda de Mel', desc:'Venda de mel natural.', wa:'6292037910' },
+
+  { cat:'comercio', name:'Comercial Vida Nova', desc:'Pão quentinho, pão de queijo, itens de mercearia e ofertas diárias.', wa:'6284955460' },
+  { cat:'comercio', name:'Único Shop', desc:'Utilidades domésticas e variedades por R$ 4,99.', wa:'9187431565' },
+  { cat:'comercio', name:'Magrão Gás', desc:'Entrega rápida de gás de cozinha.', wa:'62991651876', wa2:'62995756365' },
+
+  { cat:'classificados', name:'Geladeira Continental 471L', desc:'Em ótimo estado, motivo mudança.', price:'R$ 1.000,00', wa:'6292042838' },
+  { cat:'classificados', name:'Tablet Samsung', desc:'Pouco uso, excelente estado.', price:'R$ 900,00', wa:'6292381198' },
+  { cat:'classificados', name:'Ford Ka SEL 1.0 (2015)', desc:'', price:'R$ 35.000,00', wa:'6292161945' },
+  { cat:'classificados', name:'Tênis Casuais (Feminino e Masculino)', desc:'Frete grátis no Vida Nova e região.', price:'A partir de R$ 59,99', wa:'6296348778' },
+  { cat:'classificados', name:'Gaiola Grande para Pássaros', desc:'Seminova, entrega no bairro e aceita cartão.', price:'R$ 100,00', wa:'6293620048' },
+
+  { cat:'pets', name:'Cachorrinha Luna (Desaparecida)', desc:'Oferece recompensa. Late bastante querendo passear.', wa:'6291229845' },
+  { cat:'pets', name:'Cachorrinha Tequila (Prenha — Desaparecida)', desc:'', wa:'6295423825' },
+];
+
+let ITEMS = [];
+let pendingUpload = [];
+let editingId = null;
+let pendingImageBase64 = null;
+const state = { category: 'todos', search: '' };
+
+/* ---------- FIRESTORE HELPERS ---------- */
+async function writeItemsInBatches(items){
+  const chunkSize = 450;
+  for(let i = 0; i < items.length; i += chunkSize){
+    const chunk = items.slice(i, i + chunkSize);
+    const batch = db.batch();
+    chunk.forEach(item => {
+      const docRef = anunciosRef.doc();
+      batch.set(docRef, item);
+    });
+    await batch.commit();
+  }
+}
+
+async function deleteAllAnuncios(){
+  const snapshot = await anunciosRef.get();
+  const docs = snapshot.docs;
+  const chunkSize = 450;
+  for(let i = 0; i < docs.length; i += chunkSize){
+    const chunk = docs.slice(i, i + chunkSize);
+    const batch = db.batch();
+    chunk.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+async function ensureSeeded(){
+  const snapshot = await anunciosRef.limit(1).get();
+  if(snapshot.empty){
+    await writeItemsInBatches(DEFAULT_ITEMS);
+  }
+}
+
+async function saveAdItem(id, data){
+  if(id){
+    await anunciosRef.doc(id).set(data);
+  } else {
+    await anunciosRef.add(data);
+  }
+}
+
+async function deleteAdItem(id){
+  await anunciosRef.doc(id).delete();
+}
+
+async function toggleFeatured(id, current){
+  await anunciosRef.doc(id).update({ featured: !current });
+}
+
+function listenToAnuncios(){
+  anunciosRef.onSnapshot(
+    (snapshot) => {
+      ITEMS = snapshot.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
+      document.getElementById('syncStatus').hidden = true;
+      renderCards();
+      renderAdminList();
+    },
+    (err) => {
+      console.error('Erro ao sincronizar com o Firestore:', err);
+      const status = document.getElementById('syncStatus');
+      status.hidden = false;
+      status.textContent = '⚠️ Não foi possível sincronizar com o Firebase. Verifique sua conexão.';
+    }
+  );
+}
+
+async function initApp(){
+  const status = document.getElementById('syncStatus');
+  status.hidden = false;
+  status.textContent = 'Carregando anúncios...';
+  try{
+    await ensureSeeded();
+  }catch(e){
+    console.error('Erro ao semear dados iniciais:', e);
+  }
+  listenToAnuncios();
+}
+
+/* ---------- DEDUPE HELPERS ---------- */
+function itemKey(item){
+  return (item.name || '').trim().toLowerCase() + '|' + (item.wa || '').replace(/\D/g, '');
+}
+
+function dedupeArray(items){
+  const seen = new Set();
+  const result = [];
+  let duplicates = 0;
+  items.forEach(item => {
+    const key = itemKey(item);
+    if(seen.has(key)){
+      duplicates++;
+    } else {
+      seen.add(key);
+      result.push(item);
+    }
+  });
+  return { result, duplicates };
+}
+
+/* ---------- RENDER (MURAL) ---------- */
+function catInfo(id){ return CATEGORIES.find(c => c.id === id); }
+
+function waLink(number){ return 'https://wa.me/55' + number.replace(/\D/g,''); }
+
+function pinColor(cat){
+  const colors = { servicos:'#8a4a24', alimentacao:'#a06b0f', comercio:'#1f4f42', classificados:'#2c4d63', pets:'#7d2e3c' };
+  return colors[cat] || '#555';
+}
+
+function sortItems(items){
+  return items.slice().sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+}
+
+function renderChips(){
+  const wrap = document.getElementById('chips');
+  wrap.innerHTML = '';
+  CATEGORIES.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'chip' + (c.id === state.category ? ' active' : '');
+    el.textContent = (c.emoji ? c.emoji + ' ' : '') + c.label;
+    el.addEventListener('click', () => { state.category = c.id; renderChips(); renderCards(); });
+    wrap.appendChild(el);
+  });
+}
+
+function matchesSearch(item, term){
+  if(!term) return true;
+  const hay = (item.name + ' ' + item.desc + ' ' + (item.address||'') + ' ' + (catInfo(item.cat).label)).toLowerCase();
+  return hay.includes(term.toLowerCase());
+}
+
+function renderCards(){
+  const container = document.getElementById('cardsContainer');
+  const term = state.search.trim();
+  const filtered = sortItems(ITEMS.filter(item =>
+    (state.category === 'todos' || item.cat === state.category) && matchesSearch(item, term)
+  ));
+
+  if(filtered.length === 0){
+    container.style.display = 'block';
+    container.innerHTML = '<div class="empty"><strong>Nada encontrado por aqui</strong>Tente outra palavra-chave ou escolha outra categoria.</div>';
+    return;
+  }
+  container.style.display = '';
+
+  container.innerHTML = filtered.map((item, idx) => {
+    const cat = catInfo(item.cat) || CATEGORIES[1];
+    const mediaSrc = item.image || item.cardapio;
+    let cardClass = 'card';
+    if(mediaSrc) cardClass += ' has-media';
+    if(item.featured) cardClass += ' featured';
+    const parts = [];
+    parts.push('<div class="' + cardClass + '">');
+    parts.push('<div class="pin" style="background:' + pinColor(item.cat) + '"></div>');
+    parts.push('<div class="tape" style="background:' + cat.color + '"></div>');
+    if(mediaSrc){
+      parts.push('<button class="media-btn" type="button" data-idx="' + idx + '" aria-label="Ver foto de ' + item.name + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="13" r="3.2"/></svg></button>');
+    }
+    parts.push('<div class="card-top"><div class="card-name-row">');
+    if(item.featured){ parts.push('<span class="star-badge">⭐</span>'); }
+    parts.push('<p class="card-name">' + item.name + '</p></div>');
+    parts.push('<span class="badge" style="background:' + cat.color + '">' + cat.emoji + ' ' + cat.label + '</span></div>');
+    if(item.price){
+      parts.push('<p class="price" style="color:' + cat.color + '">' + item.price + '</p>');
+    }
+    if(item.desc){
+      parts.push('<p class="card-desc">' + item.desc + '</p>');
+    }
+    if(item.address){
+      parts.push('<p class="meta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>' + item.address + '</p>');
+    }
+    if(item.hours){
+      parts.push('<p class="meta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>' + item.hours + '</p>');
+    }
+    if(item.instagram){
+      parts.push('<a class="insta-link" href="https://instagram.com/' + item.instagram + '" target="_blank" rel="noopener">📸 @' + item.instagram + '</a>');
+    }
+    parts.push('<a class="wa-btn" href="' + waLink(item.wa) + '" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.83 14.13c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.12.11-1.81-.11-.42-.13-.95-.31-1.63-.6-2.87-1.24-4.74-4.13-4.88-4.32-.14-.19-1.16-1.55-1.16-2.95 0-1.41.74-2.1 1-2.39.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.58.81 2 .88 2.14.07.14.12.31.02.5-.09.19-.14.31-.28.47-.14.16-.29.36-.41.48-.14.14-.28.29-.12.57.16.28.71 1.17 1.52 1.9 1.05.94 1.93 1.23 2.21 1.37.28.14.44.12.6-.07.16-.19.68-.79.86-1.06.18-.28.36-.23.6-.14.24.09 1.53.72 1.79.86.26.14.43.21.5.32.07.12.07.68-.17 1.35z"/></svg>Chamar no WhatsApp</a>');
+    if(item.wa2){
+      parts.push('<a class="wa-btn wa-btn-secondary" href="' + waLink(item.wa2) + '" target="_blank" rel="noopener">💬 Outro número</a>');
+    }
+    if(item.location){
+      parts.push('<a class="wa-btn wa-btn-map" href="' + item.location + '" target="_blank" rel="noopener">📍 Ver no Mapa</a>');
+    }
+    parts.push('</div>');
+    return parts.join('');
+  }).join('');
+
+  container.querySelectorAll('.media-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const item = filtered[idx];
+      const src = item && (item.image || item.cardapio);
+      if(src){ openLightbox(src, item.name); }
+    });
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  state.search = e.target.value;
+  renderCards();
+});
+
+/* ---------- LIGHTBOX ---------- */
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+
+function openLightbox(src, alt){
+  lightboxImg.src = src;
+  lightboxImg.alt = alt || '';
+  lightbox.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(){
+  lightbox.hidden = true;
+  lightboxImg.src = '';
+  document.body.style.overflow = '';
+}
+document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', (e) => { if(e.target === lightbox){ closeLightbox(); } });
+
+/* ---------- ADMIN: PASSWORD & NAVIGATION ---------- */
+const adminModal = document.getElementById('adminModal');
+const adminStep1 = document.getElementById('adminStep1');
+const adminStep2 = document.getElementById('adminStep2');
+const adminStep3 = document.getElementById('adminStep3');
+const adminFormStep = document.getElementById('adminFormStep');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const adminPasswordError = document.getElementById('adminPasswordError');
+const adminUploadStatus = document.getElementById('adminUploadStatus');
+const adminFileInput = document.getElementById('adminFileInput');
+const adminResetBtn = document.getElementById('adminResetBtn');
+const adminReplaceAllBtn = document.getElementById('adminReplaceAllBtn');
+const adminMergeBtn = document.getElementById('adminMergeBtn');
+const adminCancelUploadBtn = document.getElementById('adminCancelUploadBtn');
+const adminSummaryText = document.getElementById('adminSummaryText');
+const adminList = document.getElementById('adminList');
+const adminNewBtn = document.getElementById('adminNewBtn');
+
+document.getElementById('adminToggle').addEventListener('click', () => {
+  adminModal.hidden = false;
+  adminStep1.hidden = false;
+  adminStep2.hidden = true;
+  adminStep3.hidden = true;
+  adminFormStep.hidden = true;
+  pendingUpload = [];
+  adminPasswordInput.value = '';
+  adminPasswordError.hidden = true;
+  adminUploadStatus.textContent = '';
+  document.body.style.overflow = 'hidden';
+  adminPasswordInput.focus();
+});
+
+function closeAdminModal(){
+  adminModal.hidden = true;
+  document.body.style.overflow = '';
+}
+document.getElementById('adminModalClose').addEventListener('click', closeAdminModal);
+adminModal.addEventListener('click', (e) => { if(e.target === adminModal){ closeAdminModal(); } });
+
+function checkAdminPassword(){
+  if(adminPasswordInput.value === ADMIN_PASSWORD){
+    adminStep1.hidden = true;
+    adminStep2.hidden = false;
+    adminUploadStatus.textContent = '';
+    populateCatSelect();
+    renderAdminList();
+  } else {
+    adminPasswordError.hidden = false;
+  }
+}
+document.getElementById('adminPasswordSubmit').addEventListener('click', checkAdminPassword);
+adminPasswordInput.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ checkAdminPassword(); } });
+
+function setAdminBusy(busy){
+  adminFileInput.disabled = busy;
+  adminResetBtn.disabled = busy;
+  adminReplaceAllBtn.disabled = busy;
+  adminMergeBtn.disabled = busy;
+  adminCancelUploadBtn.disabled = busy;
+}
+
+/* ---------- ADMIN: MANAGEMENT LIST ---------- */
+function renderAdminList(){
+  if(!adminList) return;
+  if(ITEMS.length === 0){
+    adminList.innerHTML = '<div class="admin-empty-hint">Nenhum anúncio cadastrado ainda.</div>';
+    return;
+  }
+  adminList.innerHTML = ITEMS.map(item => {
+    const cat = catInfo(item.cat) || CATEGORIES[1];
+    return '<div class="admin-row">' +
+      '<div class="admin-row-info"><span>' + cat.emoji + '</span><span class="admin-row-name">' + item.name + '</span></div>' +
+      '<div class="admin-row-actions">' +
+        '<button class="admin-icon-btn' + (item.featured ? ' active' : '') + '" data-action="feature" data-id="' + item.id + '" title="Destacar">⭐</button>' +
+        '<button class="admin-icon-btn" data-action="edit" data-id="' + item.id + '" title="Editar">✏️</button>' +
+        '<button class="admin-icon-btn" data-action="delete" data-id="' + item.id + '" title="Excluir">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+adminList.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.admin-icon-btn');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const item = ITEMS.find(i => i.id === id);
+  if(!item) return;
+
+  if(action === 'edit'){
+    openForm(item);
+  } else if(action === 'delete'){
+    if(confirm('Excluir "' + item.name + '" definitivamente do mural?')){
+      try{ await deleteAdItem(id); }
+      catch(err){ console.error(err); alert('Erro ao excluir. Tente novamente.'); }
+    }
+  } else if(action === 'feature'){
+    try{ await toggleFeatured(id, !!item.featured); }
+    catch(err){ console.error(err); alert('Erro ao atualizar destaque. Tente novamente.'); }
+  }
+});
+
+/* ---------- ADMIN: CREATE / EDIT FORM ---------- */
+function populateCatSelect(){
+  const sel = document.getElementById('formCat');
+  sel.innerHTML = VALID_CATS.map(id => {
+    const c = catInfo(id);
+    return '<option value="' + id + '">' + c.emoji + ' ' + c.label + '</option>';
+  }).join('');
+}
+
+function openForm(item){
+  editingId = (item && item.id) ? item.id : null;
+  pendingImageBase64 = null;
+
+  document.getElementById('adminFormTitle').textContent = editingId ? '✏️ Editar Anúncio' : '➕ Novo Anúncio';
+  document.getElementById('formName').value = item ? (item.name || '') : '';
+  document.getElementById('formCat').value = item ? (item.cat || VALID_CATS[0]) : VALID_CATS[0];
+  document.getElementById('formPrice').value = item ? (item.price || '') : '';
+  document.getElementById('formDesc').value = item ? (item.desc || '') : '';
+  document.getElementById('formAddress').value = item ? (item.address || '') : '';
+  document.getElementById('formHours').value = item ? (item.hours || '') : '';
+  document.getElementById('formWa').value = item ? (item.wa || '') : '';
+  document.getElementById('formWa2').value = item ? (item.wa2 || '') : '';
+  document.getElementById('formInstagram').value = item ? (item.instagram || '') : '';
+  document.getElementById('formLocation').value = item ? (item.location || '') : '';
+  document.getElementById('formImageUrl').value = item ? (item.image || '') : '';
+  document.getElementById('formImageFile').value = '';
+  document.getElementById('formFeatured').checked = !!(item && item.featured);
+  document.getElementById('adminFormStatus').textContent = '';
+
+  const preview = document.getElementById('formImagePreview');
+  if(item && item.image){
+    preview.src = item.image;
+    preview.style.display = 'block';
+  } else {
+    preview.src = '';
+    preview.style.display = 'none';
+  }
+
+  adminStep2.hidden = true;
+  adminFormStep.hidden = false;
+}
+
+adminNewBtn.addEventListener('click', () => { openForm(null); });
+
+document.getElementById('formImageUrl').addEventListener('input', (e) => {
+  pendingImageBase64 = null;
+  const preview = document.getElementById('formImagePreview');
+  const val = e.target.value.trim();
+  if(val){ preview.src = val; preview.style.display = 'block'; }
+  else { preview.src = ''; preview.style.display = 'none'; }
+});
+
+document.getElementById('formImageFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    pendingImageBase64 = evt.target.result;
+    const preview = document.getElementById('formImagePreview');
+    preview.src = pendingImageBase64;
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('formCancelBtn').addEventListener('click', () => {
+  adminFormStep.hidden = true;
+  adminStep2.hidden = false;
+});
+
+document.getElementById('formSaveBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('adminFormStatus');
+  const name = document.getElementById('formName').value.trim();
+  const wa = document.getElementById('formWa').value.trim();
+  const cat = document.getElementById('formCat').value;
+
+  if(!name || !wa){
+    statusEl.textContent = 'Preencha ao menos o nome e o WhatsApp 1.';
+    return;
+  }
+
+  const data = { name: name, cat: cat, wa: wa, featured: document.getElementById('formFeatured').checked };
+  const price = document.getElementById('formPrice').value.trim();
+  const desc = document.getElementById('formDesc').value.trim();
+  const address = document.getElementById('formAddress').value.trim();
+  const hours = document.getElementById('formHours').value.trim();
+  const wa2 = document.getElementById('formWa2').value.trim();
+  const instagram = document.getElementById('formInstagram').value.trim();
+  const location = document.getElementById('formLocation').value.trim();
+  const image = pendingImageBase64 || document.getElementById('formImageUrl').value.trim();
+
+  if(price) data.price = price;
+  data.desc = desc;
+  if(address) data.address = address;
+  if(hours) data.hours = hours;
+  if(wa2) data.wa2 = wa2;
+  if(instagram) data.instagram = instagram;
+  if(location) data.location = location;
+  if(image) data.image = image;
+
+  const saveBtn = document.getElementById('formSaveBtn');
+  const cancelBtn = document.getElementById('formCancelBtn');
+  saveBtn.disabled = true;
+  cancelBtn.disabled = true;
+  statusEl.textContent = 'Salvando...';
+
+  try{
+    await saveAdItem(editingId, data);
+    statusEl.textContent = 'Salvo com sucesso!';
+    setTimeout(() => {
+      adminFormStep.hidden = true;
+      adminStep2.hidden = false;
+    }, 500);
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'Erro ao salvar. Verifique sua conexão com o Firebase.';
+  }
+
+  saveBtn.disabled = false;
+  cancelBtn.disabled = false;
+});
+
+/* ---------- ADMIN: JSON BULK UPLOAD ---------- */
+adminFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    adminUploadStatus.textContent = '';
+    try{
+      const parsed = JSON.parse(evt.target.result);
+      if(!Array.isArray(parsed)){ throw new Error('formato inválido'); }
+      const valid = [];
+      let invalidCount = 0;
+      parsed.forEach(entry => {
+        if(entry && entry.name && entry.wa && VALID_CATS.includes(entry.cat)){
+          valid.push(entry);
+        } else {
+          invalidCount++;
+        }
+      });
+      const { result: deduped, duplicates } = dedupeArray(valid);
+      if(deduped.length === 0){
+        adminUploadStatus.textContent = 'Nenhum anúncio válido para publicar neste arquivo.';
+        e.target.value = '';
+        return;
+      }
+      pendingUpload = deduped;
+      let summary = deduped.length + ' anúncio(s) prontos para publicar.';
+      if(duplicates) summary += ' ' + duplicates + ' repetido(s) dentro do próprio arquivo foram ignorados.';
+      if(invalidCount) summary += ' ' + invalidCount + ' ignorado(s) por dados incompletos (faltando name, wa ou cat válido).';
+      summary += ' Como deseja tratar os anúncios que já existem no mural?';
+      adminSummaryText.textContent = summary;
+      adminStep2.hidden = true;
+      adminStep3.hidden = false;
+    }catch(err){
+      console.error(err);
+      adminUploadStatus.textContent = 'Erro: verifique se o arquivo é um .json válido contendo uma lista de anúncios.';
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+async function runUploadOperation(action){
+  setAdminBusy(true);
+  try{
+    await action();
+  }catch(err){
+    console.error(err);
+    adminUploadStatus.textContent = 'Erro ao publicar. Verifique sua conexão com o Firebase e tente novamente.';
+  }
+  pendingUpload = [];
+  adminStep3.hidden = true;
+  adminStep2.hidden = false;
+  setAdminBusy(false);
+}
+
+adminReplaceAllBtn.addEventListener('click', async () => {
+  if(!confirm('Isso apaga TODOS os anúncios atuais no Firebase e publica somente os ' + pendingUpload.length + ' anúncio(s) deste arquivo, para todos os moradores. Confirmar?')) return;
+  await runUploadOperation(async () => {
+    const count = pendingUpload.length;
+    await deleteAllAnuncios();
+    await writeItemsInBatches(pendingUpload);
+    adminUploadStatus.textContent = count + ' anúncio(s) publicados. A coleção anterior foi substituída para todos os moradores.';
+  });
+});
+
+adminMergeBtn.addEventListener('click', async () => {
+  await runUploadOperation(async () => {
+    const existingKeys = new Set(ITEMS.map(itemKey));
+    const newOnes = pendingUpload.filter(item => !existingKeys.has(itemKey(item)));
+    const skippedExisting = pendingUpload.length - newOnes.length;
+    if(newOnes.length){
+      await writeItemsInBatches(newOnes);
+    }
+    adminUploadStatus.textContent = newOnes.length + ' anúncio(s) novo(s) adicionado(s) para todos os moradores.' + (skippedExisting ? ' ' + skippedExisting + ' já existiam no mural e foram ignorados.' : '');
+  });
+});
+
+adminCancelUploadBtn.addEventListener('click', () => {
+  pendingUpload = [];
+  adminStep3.hidden = true;
+  adminStep2.hidden = false;
+  adminUploadStatus.textContent = 'Operação cancelada. Nada foi alterado no Firebase.';
+});
+
+adminResetBtn.addEventListener('click', async () => {
+  if(!confirm('Isso apaga TODOS os anúncios atuais no Firebase (para todos os moradores) e restaura a lista padrão. Confirmar?')) return;
+  setAdminBusy(true);
+  adminUploadStatus.textContent = 'Restaurando... aguarde.';
+  try{
+    await deleteAllAnuncios();
+    await writeItemsInBatches(DEFAULT_ITEMS);
+    adminUploadStatus.textContent = 'Anúncios padrão restaurados no Firebase para todos os moradores.';
+  }catch(err){
+    console.error(err);
+    adminUploadStatus.textContent = 'Erro ao restaurar. Verifique sua conexão com o Firebase e tente novamente.';
+  }
+  setAdminBusy(false);
+});
+
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    if(!lightbox.hidden){ closeLightbox(); }
+    if(!adminModal.hidden){ closeAdminModal(); }
+  }
+});
+
+/* ---------- START ---------- */
+renderChips();
+initApp();
+</script>
+</body>
+</html>
