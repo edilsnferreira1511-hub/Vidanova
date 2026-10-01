@@ -1,0 +1,26 @@
+{
+  "name": "Terra Campos Açaí - Gestão",
+  "short_name": "Terra Campos",
+  "description": "Aplicativo de gestão completo para açaíteria: entrada de produtos, criação de receitas, PDV, estoque e financeiro.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#15061a",
+  "theme_color": "#e27938",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
