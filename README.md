@@ -9,7 +9,7 @@ Todos os arquivos ficam em **uma única pasta**, sem subpastas.
 | `admin.html` | Painel para **você** cadastrar produtos, fotos, estoque e acompanhar pedidos |
 | `firebase-config.js` | **Único arquivo que você precisa preencher** com os dados do Firebase |
 | `index.js` | Servidor: confere preços, gera o Pix e confirma o pagamento |
-| `firestore.rules` / `storage.rules` | Regras de segurança do banco e das fotos |
+| `firestore.rules` | Regras de segurança do banco |
 
 Sem preencher nada, abrir `index.html` já mostra a loja em **modo demonstração**.
 
@@ -25,9 +25,8 @@ Sem preencher nada, abrir `index.html` já mostra a loja em **modo demonstraçã
 1. Acesse https://console.firebase.google.com › **Adicionar projeto**.
 2. **Build › Authentication › Começar** › ative **E-mail/senha** e **Google**.
 3. **Build › Firestore Database › Criar banco** (modo produção, região `southamerica-east1`).
-4. **Build › Storage › Começar** (fotos dos produtos).
-5. **Configurações do projeto › Seus apps › Web `</>`** › registre o app e copie o `firebaseConfig` para `firebase-config.js`.
-6. **Plano Blaze**: as Cloud Functions exigem o plano Blaze (pago conforme o uso, com cota gratuita mensal). Uma loja pequena costuma ficar dentro da cota, mas é necessário cadastrar um cartão.
+4. **Configurações do projeto › Seus apps › Web `</>`** › registre o app e copie o `firebaseConfig` para `firebase-config.js`.
+5. **Plano Blaze**: as Cloud Functions exigem o plano Blaze (pago conforme o uso, com cota gratuita mensal). Uma loja pequena costuma ficar dentro da cota, mas é necessário cadastrar um cartão.
 
 ### 2) Mercado Pago
 1. https://www.mercadopago.com.br/developers › **Suas integrações › Criar aplicação** (Pagamentos online).
@@ -53,6 +52,8 @@ No fim, o terminal mostra o endereço do site (`https://SEU-PROJETO.web.app`).
 4. Acesse `/admin.html`, entre e cadastre os produtos.
 
 > Tamanhos e estoque no painel: escreva `RN:3, P:5, M:2` (tamanho:quantidade).
+>
+> **Fotos:** não é preciso Storage. Cada foto é reduzida no navegador e salva como texto (base64) dentro do próprio produto no Firestore. Limite: 4 fotos por produto (o Firestore aceita ~1 MB por documento).
 
 ### 5) Testar o pagamento
 No Mercado Pago, com o token de **teste**, o Pix gera um QR de teste. Faça um pedido de ponta a ponta e confira se o status vira **Pago** antes de trocar para o token de produção.

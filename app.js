@@ -37,7 +37,7 @@ function renderProducts() {
   $('#products').innerHTML = list.map(p => {
     const sizes = Object.entries(p.sizes || {}).filter(([, n]) => Number(n) > 0);
     const out = sizes.length === 0;
-    const img = p.images?.[0] ? `<img src="${esc(p.images[0])}" alt="${esc(p.name)}" loading="lazy">` : '<div class="noimg">♡</div>';
+    const img = p.images?.[0] ? `<img src="${esc(p.images[0])}" alt="${esc(p.name)}" loading="lazy" data-pid="${esc(p.id)}" data-i="0" ${p.images.length > 1 ? 'style="cursor:pointer" title="Toque para ver mais fotos"' : ''}>` : '<div class="noimg">♡</div>';
     return `<article class="product">${img}<div class="body">
       <h3>${esc(p.name)}</h3><p>${esc(p.category)}</p><div class="price">${money(p.price)}</div>
       ${out ? '' : `<select id="size-${esc(p.id)}" aria-label="Tamanho">${sizes.map(([s]) => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>`}
@@ -197,6 +197,8 @@ function showPix(d) {
 
 /* ---------- Eventos ---------- */
 document.addEventListener('click', e => {
+  const im = e.target.closest('img[data-pid]');
+  if (im) { const p = findProduct(im.dataset.pid); if (p?.images?.length > 1) { const n = (+im.dataset.i + 1) % p.images.length; im.dataset.i = n; im.src = p.images[n]; } return; }
   const t = e.target.closest('button, a'); if (!t) return;
   if (t.dataset.cat !== undefined && !t.closest('#authDlg')) return setCategory(t.dataset.cat, !t.closest('#filters'));
   if (t.dataset.add) return addToCart(t.dataset.add);

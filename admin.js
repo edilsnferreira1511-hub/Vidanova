@@ -10,7 +10,7 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('COLE')) {
   document.body.innerHTML = '<div class="adminwrap"><div class="card"><h2>Firebase ainda não configurado</h2><p>Preencha <code>firebase-config.js</code> (veja o README) e abra esta página de novo.</p></div></div>';
   throw new Error('Firebase não configurado');
 }
-const { auth, db, storage, A, F, S } = await import('./firebase-init.js');
+const { auth, db, A, F } = await import('./firebase-init.js');
 
 let products = [], editing = null, photos = []; // photos: urls já salvas
 
@@ -58,7 +58,9 @@ async function loadProducts() {
     <button data-edit="${p.id}">Editar</button><button class="danger" data-del="${p.id}">Excluir</button></div>`).join('') || '<p>Nenhum produto ainda. Cadastre o primeiro acima ♡</p>';
 }
 function renderThumbs() {
-  $('#pThumbs').innerHTML = photos.map((u, i) => `<div><img src="${esc(u)}" alt=""><button type="button" data-rmimg="${i}">×</button></div>`).join('');
+  $('#pThumbs').innerHTML = photos.map((u, i) => `<div><img src="${esc(u)}" alt="">${i === 0 ? '<small style="display:block;text-align:center;font-size:10px;color:var(--deep)">capa</small>' : `<button type="button" class="cover" data-cover="${i}" title="Tornar capa" style="right:auto;left:-6px;background:var(--deep)">★</button>`}<button type="button" data-rmimg="${i}">×</button></div>`).join('');
+  const kb = Math.round(photos.reduce((n, u) => n + u.length, 0) / 1024);
+  $('#pPhotoInfo').textContent = `${photos.length}/${MAX_PHOTOS} fotos · ${kb} KB de ${Math.round(MAX_TOTAL / 1024)} KB`;
 }
 function resetForm() {
   editing = null; photos = []; $('#pForm').reset(); $('#pActive').checked = true; renderThumbs();
@@ -75,38 +77,58 @@ $('#pList').onclick = async e => {
   }
   if (b.dataset.del && confirm('Excluir este produto definitivamente?')) { await F.deleteDoc(F.doc(db, 'products', b.dataset.del)); loadProducts(); }
 };
-$('#pThumbs').onclick = e => { const b = e.target.closest('[data-rmimg]'); if (b) { photos.splice(+b.dataset.rmimg, 1); renderThumbs(); } };
+$('#pThumbs').onclick = e => {
+  const r = e.target.closest('[data-rmimg]'), c = e.target.closest('[data-cover]');
+  if (r) { photos.splice(+r.dataset.rmimg, 1); renderThumbs(); }
+  if (c) { const [x] = photos.splice(+c.dataset.cover, 1); photos.unshift(x); renderThumbs(); }
+};
 
-// reduz a foto antes de enviar (site mais rápido e menos espaço)
-function shrink(file, max = 1200) {
+// As fotos viram TEXTO (base64) e ficam salvas dentro do próprio produto no Firestore.
+// Limite do Firestore: 1 MB por documento, então reduzimos cada foto ao máximo possível sem estragar.
+const MAX_PHOTOS = 4, MAX_TOTAL = 800 * 1024, MAX_EACH = 220 * 1024;
+function toDataUrl(file) {
   return new Promise((res, rej) => {
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
-      const r = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
-      c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-      c.toBlob(b => b ? res(b) : rej(new Error('Falha ao processar imagem')), 'image/jpeg', 0.85);
+      URL.revokeObjectURL(url);
+      let max = 900, q = 0.82, out = '';
+      for (let i = 0; i < 8; i++) {
+        const r = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+        const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+        out = c.toDataURL('image/jpeg', q);
+        if (out.length <= MAX_EACH) return res(out);
+        if (q > 0.55) q -= 0.1; else max = Math.round(max * 0.8);
+      }
+      rej(new Error('Não foi possível reduzir esta foto o suficiente. Tente outra.'));
     };
-    img.onerror = () => rej(new Error('Imagem inválida')); img.src = url;
+    img.onerror = () => rej(new Error('Arquivo de imagem inválido.')); img.src = url;
   });
 }
+$('#pFiles').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; setMsg($('#pMsg'), 'Processando fotos…');
+  try {
+    for (const f of files) {
+      if (photos.length >= MAX_PHOTOS) throw new Error(`Máximo de ${MAX_PHOTOS} fotos por produto.`);
+      const d = await toDataUrl(f);
+      if (photos.reduce((n, u) => n + u.length, 0) + d.length > MAX_TOTAL) throw new Error('As fotos deste produto ficaram pesadas demais. Remova alguma foto e tente de novo.');
+      photos.push(d); renderThumbs();
+    }
+    setMsg($('#pMsg'), '');
+  } catch (err) { setMsg($('#pMsg'), err.message, 'err'); }
+};
 $('#pForm').onsubmit = async e => {
   e.preventDefault(); const btn = $('#pSave'); btn.disabled = true; setMsg($('#pMsg'), 'Salvando…');
   try {
     const sizes = parseSizes($('#pSizes').value);
-    const urls = [...photos];
-    for (const f of $('#pFiles').files) {
-      const blob = await shrink(f);
-      const r = S.ref(storage, `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`);
-      await S.uploadBytes(r, blob, { contentType: 'image/jpeg' }); urls.push(await S.getDownloadURL(r));
-    }
+    if (!photos.length && !confirm('Este produto está sem foto. Salvar mesmo assim?')) { btn.disabled = false; setMsg($('#pMsg'), ''); return; }
     const data = {
       name: $('#pName').value.trim(), category: $('#pCat').value, price: Math.round(Number($('#pPrice').value) * 100) / 100,
-      sizes, description: $('#pDesc').value.trim(), images: urls, active: $('#pActive').checked, updatedAt: F.serverTimestamp()
+      sizes, description: $('#pDesc').value.trim(), images: photos, active: $('#pActive').checked, updatedAt: F.serverTimestamp()
     };
     if (editing) await F.updateDoc(F.doc(db, 'products', editing), data);
     else await F.addDoc(F.collection(db, 'products'), { ...data, createdAt: F.serverTimestamp() });
-    resetForm(); setMsg($('#pMsg'), 'Produto salvo ♡', 'ok'); $('#pFiles').value = ''; loadProducts();
+    resetForm(); setMsg($('#pMsg'), 'Produto salvo ♡', 'ok'); loadProducts();
   } catch (err) { console.error(err); setMsg($('#pMsg'), err.message || 'Erro ao salvar.', 'err'); }
   finally { btn.disabled = false; }
 };
