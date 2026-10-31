@@ -14,11 +14,14 @@ const HASH_ABA = { inicio: '#/', nova: '#/nova', solicitacoes: '#/solicitacoes',
 
 let estado = { fase: 'carregando', perfil: null, motivo: '' };
 let filtros = {};
+let nomesBases = {};
 let sessao = 0; // invalida respostas atrasadas de uma sessão anterior
 
 const ctx = {
   get perfil() { return estado.perfil; },
   get filtros() { return filtros; },
+  nomeBase(id) { return nomesBases[id]?.nome ?? id; },
+  basesConhecidas() { return Object.entries(nomesBases).filter(([, v]) => v.ativo).map(([id, v]) => ({ valor: id, rotulo: v.nome })); },
   definirFiltros(f) { filtros = f; },
   ir(hash) { if (location.hash === hash) desenhar(); else location.hash = hash; },
   voltar() { if (history.length > 1) history.back(); else location.hash = '#/'; },
@@ -75,9 +78,14 @@ api.observarAuth(async (user) => {
   try {
     const perfil = await api.carregarPerfil(user.uid, user.email ?? undefined);
     if (minha !== sessao) return;
-    if (!perfil) estado = { fase: 'semAcesso', motivo: 'Seu usuário não tem perfil cadastrado no sistema.' };
-    else if (perfil.cargos.length === 0) estado = { fase: 'semAcesso', motivo: 'Seu cargo não tem acesso ao COOPMETRO BACKUP.' };
-    else estado = { fase: 'pronto', perfil };
+    if (!perfil) estado = { fase: 'semAcesso', motivo: 'Seu usuário não tem cadastro no sistema (env/producao/users).' };
+    else if (perfil.inativo) estado = { fase: 'semAcesso', motivo: 'Seu usuário está inativo. Fale com o administrador.' };
+    else if (perfil.cargos.length === 0) estado = { fase: 'semAcesso', motivo: `Seu cargo${perfil.cargoOriginal ? ` (${perfil.cargoOriginal})` : ''} não tem acesso ao COOPMETRO BACKUP.` };
+    else {
+      nomesBases = await api.carregarBases();
+      if (minha !== sessao) return;
+      estado = { fase: 'pronto', perfil };
+    }
   } catch (e) {
     if (minha !== sessao) return;
     estado = { fase: 'semAcesso', motivo: e.message || 'Falha ao carregar o perfil.' };

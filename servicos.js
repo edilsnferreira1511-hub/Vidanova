@@ -6,12 +6,11 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
-  getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, query, where, orderBy, limit,
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, query, where, limit,
   serverTimestamp, arrayUnion,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import {
-  FIREBASE_CONFIG, COLECAO_BACKUPS, COLECAO_USUARIOS, CAMPOS_USUARIO, MAPA_CARGOS,
-} from './config.js';
+import { FIREBASE_CONFIG, COLECAO_BACKUPS, COLECAO_USUARIOS, COLECAO_BASES } from './config.js';
+import { mapearUsuarioXpt } from './perfil.js';
 import { podeCriar, podeDecidir, podeColocarEmAnalise, podeCancelar, basesVisiveis } from './acesso.js';
 
 const app = initializeApp(FIREBASE_CONFIG);
@@ -39,25 +38,21 @@ export function mensagemErroAuth(err) {
 }
 
 // ---------- Perfil autorizado (o usuário não escolhe cargo nem base) ----------
-export function mapearUsuarioXpt(uid, bruto, email) {
-  const cargoBruto = bruto[CAMPOS_USUARIO.cargo];
-  const lista = Array.isArray(cargoBruto) ? cargoBruto : cargoBruto ? [cargoBruto] : [];
-  const cargos = [...new Set(lista.map((c) => MAPA_CARGOS[String(c)]).filter(Boolean))];
-  const basesBruto = bruto[CAMPOS_USUARIO.bases];
-  const bases = Array.isArray(basesBruto) ? basesBruto.map(String) : basesBruto ? [String(basesBruto)] : [];
-  return {
-    uid, email,
-    nome: String(bruto[CAMPOS_USUARIO.nome] ?? email ?? uid),
-    cargos, bases,
-    todasAsBases: CAMPOS_USUARIO.todasAsBases ? bruto[CAMPOS_USUARIO.todasAsBases] === true : false,
-  };
-}
-
+// Lê env/producao/users/{uid}. As regras do XPT só deixam cada pessoa ler o PRÓPRIO documento.
 export async function carregarPerfil(uid, email) {
-  if (!COLECAO_USUARIOS) throw new Error('Coleção de usuários do XPT não configurada (config.js).');
   const snap = await getDoc(doc(db, COLECAO_USUARIOS, uid));
   if (!snap.exists()) return null;
   return mapearUsuarioXpt(uid, snap.data(), email);
+}
+
+/** Nomes das bases (id -> {nome, ativo}). Melhor esforço: se as regras negarem, o app mostra só o id. */
+export async function carregarBases() {
+  try {
+    const snap = await getDocs(collection(db, COLECAO_BASES));
+    const mapa = {};
+    snap.forEach((d) => { const x = d.data(); mapa[d.id] = { nome: typeof x.name === 'string' ? x.name : d.id, ativo: x.active !== false }; });
+    return mapa;
+  } catch { return {}; }
 }
 
 // ---------- Solicitações de backup ----------
@@ -83,11 +78,12 @@ export async function listarSolicitacoes(p, f = {}) {
   let bases = f.bases?.length ? f.bases : permitidas === 'TODAS' ? undefined : permitidas;
   if (permitidas !== 'TODAS' && bases) bases = bases.filter((b) => permitidas.includes(b));
   if (permitidas !== 'TODAS' && (!bases || bases.length === 0)) return [];
-  const restr = [];
-  if (bases) restr.push(where('base', 'in', bases.slice(0, 30)));
-  // Pode exigir índice composto no Firestore (o console mostra o link). Não criado nesta etapa.
-  const snap = await getDocs(query(col(), ...restr, orderBy('criadoEm', 'desc'), limit(200)));
-  let linhas = snap.docs.map((d) => deDoc(d.id, d.data()));
+  // Uma consulta por base (where ==): é o formato que as regras do Firestore conseguem validar com segurança,
+  // e dispensa índice composto. Sem `bases` (só quem tem acesso a todas) lê a coleção inteira.
+  const consultas = bases ? bases.map((b) => query(col(), where('base', '==', b), limit(500))) : [query(col(), limit(500))];
+  const snaps = await Promise.all(consultas.map((q) => getDocs(q)));
+  let linhas = snaps.flatMap((s) => s.docs.map((d) => deDoc(d.id, d.data())));
+  linhas.sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm)));
   if (f.status?.length) linhas = linhas.filter((r) => f.status.includes(r.status));
   if (f.de) linhas = linhas.filter((r) => r.dataBackup >= f.de);
   if (f.ate) linhas = linhas.filter((r) => r.dataBackup <= f.ate);

@@ -1,36 +1,41 @@
 // =====================================================================================
-// PROPOSTA — NÃO APLICADA E NÃO TESTADA. Não substitui as regras do XPT.
-// Deve ser MESCLADA às regras existentes (apenas acrescentar o bloco `match /backup_requests`
-// e as funções `bk*`), sem alterar nenhuma regra atual. Antes de publicar: validar no emulador do
-// Firestore e revisar com o responsável. Itens <ENTRE_COLCHETES> dependem da estrutura real do XPT.
+// PROPOSTA — NÃO APLICADA E NÃO TESTADA (sem emulador do Firestore neste ambiente).
+// NÃO substitui as regras do XPT: deve ser MESCLADA a elas, só ACRESCENTANDO o bloco abaixo,
+// sem alterar nenhuma regra existente (inclusive as de `backups`, `claims`, `users`, etc.).
+// Antes de publicar: colar no editor de regras, testar no "Simulador de regras" do Console e revisar.
+// Caminhos e campos vieram do cadastro informado: env/producao/users/{uid} com
+// role (texto), xptIds (lista), active (booleano).
 // =====================================================================================
+//
+// Coloque dentro de:  match /databases/{database}/documents { match /env/producao { ... } }
+// (se as regras do XPT já tiverem esse aninhamento, acrescente só as funções bk* e o match abaixo)
 
-// --- Funções auxiliares (dentro de `match /databases/{database}/documents`) ---
-function bkSignedIn() { return request.auth != null; }
-
-function bkProfile() {
-  return get(/databases/$(database)/documents/<COLECAO_USUARIOS>/$(request.auth.uid)).data;
+function bkUser() {
+  return get(/databases/$(database)/documents/env/producao/users/$(request.auth.uid)).data;
 }
-
-// <A_CONFIRMAR> como o cargo do XPT vira o papel do app (mesma tabela de xptSchema.ts).
-function bkHasRole(role) {
-  return bkSignedIn() && role in bkProfile().<CAMPO_PAPEIS_DERIVADOS>;
+function bkAtivo() {
+  return request.auth != null
+    && exists(/databases/$(database)/documents/env/producao/users/$(request.auth.uid))
+    && bkUser().active == true;
 }
+function bkRole() { return bkUser().role; }
+// Pelo cadastro do XPT, estes cargos enxergam todas as bases.
+function bkTodasBases() { return bkAtivo() && bkRole() in ['admin_sistema', 'administrador', 'coord_geral']; }
+function bkPodeBase(base) { return bkTodasBases() || (bkAtivo() && base in bkUser().xptIds); }
 
-function bkCanBase(base) {
-  return bkSignedIn() && (bkProfile().<CAMPO_ACESSO_TOTAL> == true || base in bkProfile().<CAMPO_BASES>);
-}
-
-// --- Coleção própria de solicitações de backup ---
+// Coleção PRÓPRIA do sistema de backup (não é a subcoleção `backups` que já existe).
 match /backup_requests/{reqId} {
 
-  // Leitura: só quem tem papel no app E a base autorizada. Filtro visual não protege dados; isto sim.
-  allow read: if (bkHasRole('despachante') || bkHasRole('supervisor') || bkHasRole('coordenador_geral'))
-              && bkCanBase(resource.data.base);
+  // Leitura: cargo com acesso ao sistema E base autorizada. Filtro visual não protege dados; isto sim.
+  // O app consulta uma base por vez (where base == X), que é o formato que estas regras conseguem validar.
+  allow read: if bkAtivo()
+              && bkRole() in ['despacho', 'supervisor', 'coord_geral']
+              && bkPodeBase(resource.data.base);
 
-  // Criação: despachante, na própria base, como solicitante, sempre PENDENTE e sem decisão.
-  allow create: if bkHasRole('despachante')
-                && bkCanBase(request.resource.data.base)
+  // Criação: despacho, na própria base, como solicitante, sempre PENDENTE e sem decisão.
+  allow create: if bkAtivo()
+                && bkRole() == 'despacho'
+                && bkPodeBase(request.resource.data.base)
                 && request.resource.data.solicitante.uid == request.auth.uid
                 && request.resource.data.status == 'PENDENTE'
                 && !('decisao' in request.resource.data)
@@ -38,8 +43,9 @@ match /backup_requests/{reqId} {
                 && request.resource.data.historico[0].status == 'PENDENTE'
                 && request.resource.data.historico[0].porUid == request.auth.uid;
 
-  // Atualização: somente status/historico/decisao; histórico só cresce (1 entrada por mudança).
-  allow update: if bkCanBase(resource.data.base)
+  // Atualização: só status/historico/decisao; o histórico só cresce, com UMA entrada nova por mudança.
+  allow update: if bkAtivo()
+                && bkPodeBase(resource.data.base)
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'historico', 'decisao'])
                 && request.resource.data.historico.size() == resource.data.historico.size() + 1
                 && request.resource.data.historico[0:resource.data.historico.size()] == resource.data.historico
@@ -52,14 +58,14 @@ match /backup_requests/{reqId} {
                     && resource.data.solicitante.uid == request.auth.uid
                     && !('decisao' in request.resource.data.diff(resource.data).affectedKeys()) )
                   ||
-                  // Colocar em análise: supervisor ou coordenador (REGRA A CONFIRMAR)
-                  ( (bkHasRole('supervisor') || bkHasRole('coordenador_geral'))
+                  // Colocar em análise: supervisor ou coordenador geral (REGRA A CONFIRMAR)
+                  ( bkRole() in ['supervisor', 'coord_geral']
                     && resource.data.status == 'PENDENTE'
                     && request.resource.data.status == 'EM_ANALISE'
                     && !('decisao' in request.resource.data.diff(resource.data).affectedKeys()) )
                   ||
                   // Decidir: só coordenador geral, nunca o próprio pedido
-                  ( bkHasRole('coordenador_geral')
+                  ( bkRole() == 'coord_geral'
                     && resource.data.solicitante.uid != request.auth.uid
                     && resource.data.status in ['PENDENTE', 'EM_ANALISE']
                     && request.resource.data.status in ['APROVADO', 'RECUSADO']
@@ -74,7 +80,11 @@ match /backup_requests/{reqId} {
   allow delete: if false;
 }
 
-// Observações:
-// - `list` com `where('base','in',[...])` precisa ser validado no emulador contra a regra de leitura.
-// - Se o "horário oficial" for exigido, acrescentar validação de `criadoEmServidor == request.time` na criação.
-// - O índice composto (base + criadoEm) deve ser criado pelo responsável; não foi criado nesta etapa.
+// Para o app mostrar o NOME das bases, o usuário ativo precisa ler env/producao/xpts (se as regras atuais
+// já permitirem, nada a fazer; se não, o app funciona mostrando só o id da base).
+//
+// Pontos em aberto:
+// - `coord_base` está FORA destas regras até haver decisão (PENDENCIAS.md).
+// - Se o XPT já tiver regras que casem `env/producao/{qualquer}/{doc}`, confirmar que não liberam esta coleção
+//   a mais gente do que o desejado.
+// - Horário oficial: se for exigido, validar `criadoEmServidor == request.time` na criação.

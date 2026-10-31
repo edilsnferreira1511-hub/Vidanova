@@ -2,7 +2,7 @@
 
 Sistema de solicitações de pagamento de backup. Roda direto no GitHub Pages, **sem instalar nada e sem build**. Todos os arquivos ficam soltos numa pasta só (sem subpastas), então dá para enviar pelo site do GitHub.
 
-> **Estado:** a interface foi testada num navegador de teste com um Firebase **simulado**. A ligação com o Firebase **real** do XPT **ainda não foi testada** e depende de preencher o `config.js` (veja `PENDENCIAS.md`). Nada foi publicado e nenhuma regra de produção foi alterada.
+> **Estado:** o login real no Firebase do XPT já foi confirmado por você. A leitura do cadastro, a criação e a decisão de solicitações **ainda não foram testadas contra o Firebase real**: as telas só foram testadas com um Firebase simulado, e as regras de segurança ainda não estão aplicadas (veja `PENDENCIAS.md`). Nada foi publicado e nenhuma regra de produção foi alterada.
 
 ## Publicar no GitHub Pages (passo a passo)
 
@@ -13,13 +13,25 @@ Sistema de solicitações de pagamento de backup. Roda direto no GitHub Pages, *
 5. No **Firebase Console → Authentication → Settings → Authorized domains**, adicione `SEU-USUARIO.github.io`. Sem isso o login é recusado.
 6. No celular, abra o endereço no Chrome e use **Instalar app / Adicionar à tela inicial**.
 
-## O que você precisa editar
+## Como o acesso funciona
 
-Só o **`config.js`**: coleção de usuários do XPT, os campos de nome/cargo/bases e o mapa de cargos. Enquanto estiver vazio, o login mostra "Configuração pendente" e ninguém recebe acesso.
+O login é o do Firebase Authentication do XPT. Depois de entrar, o app lê **`env/producao/users/{uid}`** (só o documento da própria pessoa) e usa `role`, `xptIds` e `active`:
+
+| `role` no XPT | Papel neste sistema |
+|---|---|
+| `despacho` | Despachante |
+| `supervisor` | Supervisor |
+| `coord_geral` | Coordenador geral |
+| `administrador`, `admin_sistema` | Administrador |
+| `coord_base`, `motorista` | **Sem acesso** (coord_base aguarda decisão) |
+
+`active` diferente de `true` bloqueia. `coord_geral`, `administrador` e `admin_sistema` enxergam todas as bases; os demais só as de `xptIds`. Tudo isso fica no `config.js`, que normalmente não precisa mexer.
+
+As solicitações ficam em **`env/producao/backup_requests`**, separadas da subcoleção `backups` que já existe no XPT.
 
 ## Atualizar depois
 
-Ao subir arquivos alterados, abra o `sw.js` e aumente `VERSAO` (`v1` → `v2`), para os celulares pegarem a versão nova.
+Ao subir arquivos alterados, abra o `sw.js` e aumente `VERSAO` (atual: `v2`), para os celulares pegarem a versão nova.
 
 ## Mapa dos arquivos
 
@@ -30,8 +42,8 @@ Ao subir arquivos alterados, abra o `sw.js` e aumente `VERSAO` (`v1` → `v2`), 
 | `telas.js` | Todas as telas |
 | `ui.js`, `leitorqr.js` | Componentes e leitor de QR Code |
 | `servicos.js` | Conversa com o Firebase (login, perfil, solicitações) |
-| `acesso.js`, `status.js`, `qr.js`, `planilha.js` | Regras de permissão, status, leitura dos QR e linhas da planilha |
-| `config.js` | **Configuração** |
+| `acesso.js`, `status.js`, `qr.js`, `perfil.js`, `planilha.js` | Regras de permissão, status, leitura dos QR e linhas da planilha |
+| `config.js` | Configuração (caminhos, campos e mapa de cargos) |
 | `Code.gs`, `PLANILHAS.md` | Espelho para o Google Planilhas (fora do app, não testado) |
 | `firestore.rules.proposed` | Regras do Firestore **propostas**, não aplicadas |
 | `PENDENCIAS.md` | O que falta |

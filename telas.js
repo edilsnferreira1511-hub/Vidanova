@@ -43,7 +43,7 @@ export function telaSemAcesso(ctx, motivo) {
 // ---------------------------------------------------------------- lista reutilizável
 function cartaoSolicitacao(ctx, r) {
   const el = h('button', { class: 'cartao clicavel', type: 'button' },
-    h('div', { class: 'linha entre' }, h('strong', {}, `${r.dataBackup} · ${r.base}`), badge(r.status)),
+    h('div', { class: 'linha entre' }, h('strong', {}, `${r.dataBackup} · ${ctx.nomeBase(r.base)}`), badge(r.status)),
     muted(`SVC ${r.svc} · Rota ${r.rotaNome ?? r.rotaId ?? '—'}`),
     muted(`${r.qtdPacotes} pacotes · ${r.qtdParadas} paradas · ${r.solicitante.nome}`));
   el.addEventListener('click', () => ctx.ir(`#/solicitacao/${encodeURIComponent(r.id)}`));
@@ -69,7 +69,7 @@ export function telaInicio(ctx) {
   const p = ctx.perfil;
   const caixa = h('div');
   const raiz = h('main', { class: 'tela' },
-    cabecalho(`Olá, ${p.nome.split(' ')[0]}`, p.bases.join(' · ') || 'Sem base vinculada'),
+    cabecalho(`Olá, ${p.nome.split(' ')[0]}`, p.bases.map(ctx.nomeBase).join(' · ') || 'Sem base vinculada'),
     p.bases.length === 0 ? banner('warning', 'Seu usuário não tem base vinculada. Fale com o administrador.') : null,
     botao('Nova solicitação de backup', { variante: 'primary', aoClicar: () => ctx.ir('#/nova') }),
     botao('Ver solicitações da minha base', { aoClicar: () => ctx.ir('#/solicitacoes') }),
@@ -103,7 +103,7 @@ export function telaNova(ctx) {
   pintar();
 
   const seletorBase = p.bases.length
-    ? chips(p.bases.map((b) => ({ valor: b, rotulo: b })), estado.base ? [estado.base] : [], { aoMudar: ([b]) => { estado.base = b; } })
+    ? chips(p.bases.map((b) => ({ valor: b, rotulo: ctx.nomeBase(b) })), estado.base ? [estado.base] : [], { aoMudar: ([b]) => { estado.base = b; } })
     : banner('warning', 'Nenhuma base vinculada ao seu usuário.');
   const data = campo('Data do backup', { tipo: 'date', valor: hoje() });
   const motorista = campo('Nome do motorista');
@@ -184,7 +184,7 @@ export function telaDetalhes(ctx, id) {
     const agir = (fn) => async () => { erro.replaceChildren(); try { await fn(); await carregar(); } catch (e) { erro.append(banner('error', e.message)); } };
     const v = r.veiculo ?? {};
     raiz.replaceChildren(
-      cabecalho(`${r.svc} · ${r.rotaNome ?? r.rotaId ?? 'Rota'}`, `${r.dataBackup} · ${r.base}`, badge(r.status)),
+      cabecalho(`${r.svc} · ${r.rotaNome ?? r.rotaId ?? 'Rota'}`, `${r.dataBackup} · ${ctx.nomeBase(r.base)}`, badge(r.status)),
       erro,
       cartao(titulo2('Dados da rota'), item('SVC', r.svc), item('Rota', r.rotaNome ?? r.rotaId), item('Contêiner', r.containerId),
         item('Pacotes', r.qtdPacotes), item('Paradas', r.qtdParadas)),
@@ -220,7 +220,7 @@ export function telaAnalise(ctx, id) {
     const decisao = chips([{ valor: 'APROVADO', rotulo: 'Aprovar' }, { valor: 'RECUSADO', rotulo: 'Recusar' }], [], { aoMudar: ([v]) => { resultado = v; } });
     const desc = chips([{ valor: 'SIM', rotulo: 'Haverá desconto' }, { valor: 'NAO', rotulo: 'Sem desconto' }], [], { aoMudar: ([v]) => { desconto = v; } });
     raiz.replaceChildren(
-      cabecalho('Análise e aprovação', `${r.svc} · ${r.base} · ${r.dataBackup}`),
+      cabecalho('Análise e aprovação', `${r.svc} · ${ctx.nomeBase(r.base)} · ${r.dataBackup}`),
       cartao(titulo2('Resumo'), h('div', {}, `Rota ${r.rotaNome ?? r.rotaId ?? '—'} · Contêiner ${r.containerId ?? '—'}`),
         h('div', {}, `${r.qtdPacotes} pacotes · ${r.qtdParadas} paradas`), muted(`Motivo: ${r.motivo}`), muted(`Solicitante: ${r.solicitante.nome}`)),
       rotulo('Decisão'), decisao, just, rotulo('Desconto de cooperado'), desc, erro,
@@ -272,7 +272,7 @@ export function telaAvisos(ctx) {
       const avisos = linhas.flatMap((r) => {
         const ult = r.historico[r.historico.length - 1];
         if (!ult) return [];
-        if (revisor && (r.status === 'PENDENTE' || r.status === 'EM_ANALISE')) return [{ id: r.id, em: ult.em, texto: `${r.base} · ${r.svc}: aguardando decisão (${ROTULO_STATUS[r.status]})` }];
+        if (revisor && (r.status === 'PENDENTE' || r.status === 'EM_ANALISE')) return [{ id: r.id, em: ult.em, texto: `${ctx.nomeBase(r.base)} · ${r.svc}: aguardando decisão (${ROTULO_STATUS[r.status]})` }];
         if (!revisor && r.solicitante.uid === p.uid && ult.porUid !== p.uid) return [{ id: r.id, em: ult.em, texto: `Sua solicitação de ${r.dataBackup} (${r.svc}) foi ${ROTULO_STATUS[r.status].toLowerCase()}` }];
         return [];
       }).sort((a, b) => String(b.em).localeCompare(String(a.em)));
@@ -291,9 +291,10 @@ export function telaAvisos(ctx) {
 export function telaFiltros(ctx) {
   const p = ctx.perfil;
   const f = { ...ctx.filtros };
-  const baseUi = p.todasAsBases
-    ? campo('Base (uma)', { valor: f.bases?.[0] ?? '' })
-    : chips(p.bases.map((b) => ({ valor: b, rotulo: b })), f.bases ?? [], { multiplo: true, aoMudar: (v) => { f.bases = v; } });
+  const opcoesBases = p.todasAsBases ? ctx.basesConhecidas() : p.bases.map((b) => ({ valor: b, rotulo: ctx.nomeBase(b) }));
+  const baseUi = opcoesBases.length
+    ? chips(opcoesBases, f.bases ?? [], { multiplo: true, aoMudar: (v) => { f.bases = v; } })
+    : campo('Base (id)', { valor: f.bases?.[0] ?? '' });
   const status = chips(TODOS_STATUS.map((s) => ({ valor: s, rotulo: ROTULO_STATUS[s] })), f.status ?? [], { multiplo: true, aoMudar: (v) => { f.status = v; } });
   const de = campo('De', { tipo: 'date', valor: f.de ?? '' });
   const ate = campo('Até', { tipo: 'date', valor: f.ate ?? '' });
@@ -304,7 +305,7 @@ export function telaFiltros(ctx) {
       variante: 'primary',
       aoClicar: () => {
         const novo = { bases: f.bases?.length ? f.bases : undefined, status: f.status?.length ? f.status : undefined, de: de.input.value || undefined, ate: ate.input.value || undefined };
-        if (p.todasAsBases && baseUi.input?.value.trim()) novo.bases = [baseUi.input.value.trim()];
+        if (baseUi.input?.value.trim()) novo.bases = [baseUi.input.value.trim()];
         ctx.definirFiltros(novo);
         ctx.voltar();
       },
@@ -319,7 +320,7 @@ export function telaPerfil(ctx) {
   return h('main', { class: 'tela' },
     cabecalho(p.nome, p.email),
     cartao(titulo2('Acesso'), item('Cargos', p.cargos.map((c) => ROTULO_CARGO[c]).join(', ')),
-      item('Bases vinculadas', p.todasAsBases ? 'Todas (acesso total cadastrado)' : p.bases.join(', ') || 'Nenhuma'),
+      item('Cargo no XPT', p.cargoOriginal), item('Bases vinculadas', p.todasAsBases ? 'Todas (pelo cargo)' : p.bases.map(ctx.nomeBase).join(', ') || 'Nenhuma'),
       muted('Cargo e base vêm do cadastro do sistema e não podem ser alterados aqui.')),
     podeGerirAcessos(p) ? banner('info', 'Gestão de acessos: definição de regras pendente (ver PENDENCIAS.md).') : null,
     cartao(titulo2('Sistema'), muted('Espelho Google Planilhas: não configurado')),
