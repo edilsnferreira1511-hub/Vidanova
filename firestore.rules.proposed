@@ -1,0 +1,80 @@
+// =====================================================================================
+// PROPOSTA — NÃO APLICADA E NÃO TESTADA. Não substitui as regras do XPT.
+// Deve ser MESCLADA às regras existentes (apenas acrescentar o bloco `match /backup_requests`
+// e as funções `bk*`), sem alterar nenhuma regra atual. Antes de publicar: validar no emulador do
+// Firestore e revisar com o responsável. Itens <ENTRE_COLCHETES> dependem da estrutura real do XPT.
+// =====================================================================================
+
+// --- Funções auxiliares (dentro de `match /databases/{database}/documents`) ---
+function bkSignedIn() { return request.auth != null; }
+
+function bkProfile() {
+  return get(/databases/$(database)/documents/<COLECAO_USUARIOS>/$(request.auth.uid)).data;
+}
+
+// <A_CONFIRMAR> como o cargo do XPT vira o papel do app (mesma tabela de xptSchema.ts).
+function bkHasRole(role) {
+  return bkSignedIn() && role in bkProfile().<CAMPO_PAPEIS_DERIVADOS>;
+}
+
+function bkCanBase(base) {
+  return bkSignedIn() && (bkProfile().<CAMPO_ACESSO_TOTAL> == true || base in bkProfile().<CAMPO_BASES>);
+}
+
+// --- Coleção própria de solicitações de backup ---
+match /backup_requests/{reqId} {
+
+  // Leitura: só quem tem papel no app E a base autorizada. Filtro visual não protege dados; isto sim.
+  allow read: if (bkHasRole('despachante') || bkHasRole('supervisor') || bkHasRole('coordenador_geral'))
+              && bkCanBase(resource.data.base);
+
+  // Criação: despachante, na própria base, como solicitante, sempre PENDENTE e sem decisão.
+  allow create: if bkHasRole('despachante')
+                && bkCanBase(request.resource.data.base)
+                && request.resource.data.solicitante.uid == request.auth.uid
+                && request.resource.data.status == 'PENDENTE'
+                && !('decisao' in request.resource.data)
+                && request.resource.data.historico.size() == 1
+                && request.resource.data.historico[0].status == 'PENDENTE'
+                && request.resource.data.historico[0].porUid == request.auth.uid;
+
+  // Atualização: somente status/historico/decisao; histórico só cresce (1 entrada por mudança).
+  allow update: if bkCanBase(resource.data.base)
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'historico', 'decisao'])
+                && request.resource.data.historico.size() == resource.data.historico.size() + 1
+                && request.resource.data.historico[0:resource.data.historico.size()] == resource.data.historico
+                && request.resource.data.historico[resource.data.historico.size()].status == request.resource.data.status
+                && request.resource.data.historico[resource.data.historico.size()].porUid == request.auth.uid
+                && (
+                  // Cancelar: o próprio solicitante, enquanto PENDENTE
+                  ( resource.data.status == 'PENDENTE'
+                    && request.resource.data.status == 'CANCELADO'
+                    && resource.data.solicitante.uid == request.auth.uid
+                    && !('decisao' in request.resource.data.diff(resource.data).affectedKeys()) )
+                  ||
+                  // Colocar em análise: supervisor ou coordenador (REGRA A CONFIRMAR)
+                  ( (bkHasRole('supervisor') || bkHasRole('coordenador_geral'))
+                    && resource.data.status == 'PENDENTE'
+                    && request.resource.data.status == 'EM_ANALISE'
+                    && !('decisao' in request.resource.data.diff(resource.data).affectedKeys()) )
+                  ||
+                  // Decidir: só coordenador geral, nunca o próprio pedido
+                  ( bkHasRole('coordenador_geral')
+                    && resource.data.solicitante.uid != request.auth.uid
+                    && resource.data.status in ['PENDENTE', 'EM_ANALISE']
+                    && request.resource.data.status in ['APROVADO', 'RECUSADO']
+                    && request.resource.data.decisao.resultado == request.resource.data.status
+                    && request.resource.data.decisao.porUid == request.auth.uid
+                    && request.resource.data.decisao.justificativa is string
+                    && request.resource.data.decisao.justificativa.size() > 0
+                    && request.resource.data.decisao.descontoCooperado in ['SIM', 'NAO'] )
+                );
+
+  // Nada é apagado: o histórico das decisões é preservado.
+  allow delete: if false;
+}
+
+// Observações:
+// - `list` com `where('base','in',[...])` precisa ser validado no emulador contra a regra de leitura.
+// - Se o "horário oficial" for exigido, acrescentar validação de `criadoEmServidor == request.time` na criação.
+// - O índice composto (base + criadoEm) deve ser criado pelo responsável; não foi criado nesta etapa.
