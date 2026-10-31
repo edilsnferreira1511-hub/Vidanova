@@ -1,0 +1,15 @@
+{
+  "name": "coopmetro-backup",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "bootstrap": "bash bootstrap.sh",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "node --import ./register.mjs --test qr.test.ts access.test.ts sheets-sync.test.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

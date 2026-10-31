@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "COOPMETRO BACKUP",
+    "slug": "coopmetro-backup",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./logo.jpg",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#132306",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "br.com.coopmetro.backup"
+    },
+    "android": {
+      "package": "br.com.coopmetro.backup"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./logo.jpg",
+      "name": "COOPMETRO BACKUP",
+      "shortName": "BACKUP",
+      "themeColor": "#132306",
+      "backgroundColor": "#132306"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir o uso da câmera para ler QR Codes de rota e veículo."
+        }
+      ]
+    ]
+  }
+}
