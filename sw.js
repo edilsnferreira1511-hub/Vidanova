@@ -1,7 +1,7 @@
 // Service worker: deixa o app instalável e abre a "casca" mesmo sem internet.
 // Dados do Firebase e scripts de outros domínios NUNCA são guardados aqui (sempre vão à rede).
 // Ao publicar uma mudança nos arquivos, aumente o número da VERSAO para os celulares atualizarem.
-const VERSAO = 'v5';
+const VERSAO = 'v6';
 const CACHE = `coopmetro-backup-${VERSAO}`;
 const CASCA = [
   './', './index.html', './estilo.css', './app.js', './telas.js', './ui.js', './servicos.js', './leitorqr.js',

@@ -16,7 +16,7 @@ export const FIREBASE_CONFIG = {
 };
 
 // Versão exibida no Perfil (confira se o celular está com o site atualizado). Mantenha igual ao VERSAO do sw.js.
-export const VERSAO_APP = 'v5';
+export const VERSAO_APP = 'v6';
 
 // ---- Caminhos no Firestore do XPT (informados pelo responsável) ----
 export const COLECAO_USUARIOS = 'env/producao/users'; //            documento = UID do Authentication

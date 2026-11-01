@@ -77,7 +77,9 @@ export const carregarBases = _carregarBases;
 // ---------- Solicitações de backup ----------
 const col = () => collection(db, COLECAO_BACKUPS);
 // O Firestore recusa valores `undefined`: remove esses campos antes de gravar.
-const limpar = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined).map(([k, v]) => [k, v && typeof v === 'object' && !Array.isArray(v) ? limpar(v) : v]));
+// Remove campos undefined. Só entra em objetos SIMPLES: marcadores do Firebase (serverTimestamp etc.) são instâncias de classe e não podem ser reconstruídos.
+const ehSimples = (v) => v !== null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype;
+const limpar = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined).map(([k, v]) => [k, ehSimples(v) ? limpar(v) : v]));
 const deDoc = (id, dados) => ({ ...dados, id });
 
 async function _criarSolicitacao(p, dados) {
