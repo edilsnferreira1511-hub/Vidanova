@@ -7,7 +7,7 @@ import {
 } from './acesso.js';
 import * as api from './servicos.js';
 import { abrirLeitorQr } from './leitorqr.js';
-import { configPendente } from './config.js';
+import { configPendente, VERSAO_APP } from './config.js';
 
 const hoje = () => {
   const d = new Date();
@@ -134,7 +134,11 @@ export function telaNova(ctx) {
       try {
         const id = await api.criarSolicitacao(p, dados);
         ctx.ir(`#/solicitacao/${encodeURIComponent(id)}`);
-      } catch (e) { falha(e.message || 'Não foi possível enviar a solicitação.'); }
+      } catch (e) {
+        const recusado = String(e.message).includes('servidor recusou');
+        falha((e.message || 'Não foi possível enviar a solicitação.')
+          + (recusado ? ` [Detalhe técnico — versão ${VERSAO_APP}; cargo: ${p.cargoOriginal}; base escolhida: ${estado.base}; bases do usuário: ${p.bases.join(', ') || 'nenhuma'}; uid: ${p.uid}]` : ''));
+      }
     },
   });
 
@@ -323,6 +327,6 @@ export function telaPerfil(ctx) {
       item('Cargo no XPT', p.cargoOriginal), item('Bases vinculadas', p.todasAsBases ? 'Todas (pelo cargo)' : p.bases.map(ctx.nomeBase).join(', ') || 'Nenhuma'),
       muted('Cargo e base vêm do cadastro do sistema e não podem ser alterados aqui.')),
     podeGerirAcessos(p) ? banner('info', 'Gestão de acessos: definição de regras pendente (ver PENDENCIAS.md).') : null,
-    cartao(titulo2('Sistema'), muted('Espelho Google Planilhas: não configurado')),
+    cartao(titulo2('Sistema'), item('Versão do app', VERSAO_APP), muted('Espelho Google Planilhas: não configurado')),
     botao('Sair', { variante: 'danger', aoClicar: api.sair }));
 }

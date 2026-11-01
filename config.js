@@ -15,6 +15,9 @@ export const FIREBASE_CONFIG = {
   measurementId: 'G-CKXJZCV6R0',
 };
 
+// Versão exibida no Perfil (confira se o celular está com o site atualizado). Mantenha igual ao VERSAO do sw.js.
+export const VERSAO_APP = 'v5';
+
 // ---- Caminhos no Firestore do XPT (informados pelo responsável) ----
 export const COLECAO_USUARIOS = 'env/producao/users'; //            documento = UID do Authentication
 export const COLECAO_BASES = 'env/producao/xpts'; //                id da base -> { name, active }
